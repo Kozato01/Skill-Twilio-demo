@@ -1,0 +1,216 @@
+{
+  "description": "Atendimento de __EMPRESA__ por mensagem, conversa e ligação. Os marcadores são preenchidos a partir do .env (tw.py flow).",
+  "initial_state": "Trigger",
+  "flags": { "allow_concurrent_calls": true },
+  "states": [
+    {
+      "name": "Trigger", "type": "trigger",
+      "properties": { "offset": { "x": 0, "y": 0 } },
+      "transitions": [
+        { "event": "incomingMessage", "next": "ia_mensagem" },
+        { "event": "incomingCall", "next": "agente_voz" },
+        { "event": "incomingConversationMessage", "next": "ia_conversa" },
+        { "event": "incomingRequest" },
+        { "event": "incomingParent" }
+      ]
+    },
+    {
+      "name": "ia_mensagem", "type": "make-http-request",
+      "properties": {
+        "offset": { "x": -420, "y": 220 },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "url": "__PUBLIC_BASE_URL__/ia/mensagem",
+        "parameters": [
+          { "key": "canal", "value": "{% if trigger.message.From contains 'whatsapp' %}whatsapp{% else %}sms{% endif %}" },
+          { "key": "telefone", "value": "{{trigger.message.From}}" },
+          { "key": "texto", "value": "{{trigger.message.Body}}" },
+          { "key": "midia", "value": "{{trigger.message.MediaUrl0}}" },
+          { "key": "token", "value": "__STUDIO_TOKEN__" }
+        ]
+      },
+      "transitions": [
+        { "event": "success", "next": "tem_resposta" },
+        { "event": "failed", "next": "erro_mensagem" }
+      ]
+    },
+    {
+      "name": "tem_resposta", "type": "split-based-on",
+      "properties": { "offset": { "x": -420, "y": 460 }, "input": "{{widgets.ia_mensagem.parsed.resposta}}" },
+      "transitions": [
+        { "event": "noMatch", "next": "responde_mensagem" },
+        {
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "humano responde",
+              "arguments": ["{{widgets.ia_mensagem.parsed.resposta}}"],
+              "type": "is_blank",
+              "value": "Is Blank"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "responde_mensagem", "type": "send-message",
+      "properties": {
+        "offset": { "x": -560, "y": 700 },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "to": "{{contact.channel.address}}",
+        "body": "{{widgets.ia_mensagem.parsed.resposta}}"
+      },
+      "transitions": [{ "event": "sent" }, { "event": "failed" }]
+    },
+    {
+      "name": "erro_mensagem", "type": "send-message",
+      "properties": {
+        "offset": { "x": -160, "y": 460 },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "to": "{{contact.channel.address}}",
+        "body": "Estamos com uma instabilidade agora. Tente de novo em alguns minutos."
+      },
+      "transitions": [{ "event": "sent" }, { "event": "failed" }]
+    },
+    {
+      "name": "ia_conversa", "type": "make-http-request",
+      "properties": {
+        "offset": { "x": 400, "y": 220 },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "url": "__PUBLIC_BASE_URL__/ia/mensagem",
+        "parameters": [
+          { "key": "canal", "value": "{% if trigger.conversation.Author contains 'whatsapp' %}whatsapp{% else %}sms{% endif %}" },
+          { "key": "telefone", "value": "{{trigger.conversation.Author}}" },
+          { "key": "texto", "value": "{{trigger.conversation.Body}}" },
+          { "key": "conversation_sid", "value": "{{trigger.conversation.ConversationSid}}" },
+          { "key": "token", "value": "__STUDIO_TOKEN__" }
+        ]
+      },
+      "transitions": [
+        { "event": "success", "next": "tem_resposta_conversa" },
+        { "event": "failed", "next": "erro_conversa" }
+      ]
+    },
+    {
+      "name": "tem_resposta_conversa", "type": "split-based-on",
+      "properties": { "offset": { "x": 400, "y": 460 }, "input": "{{widgets.ia_conversa.parsed.resposta}}" },
+      "transitions": [
+        { "event": "noMatch", "next": "responde_conversa" },
+        {
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "humano responde",
+              "arguments": ["{{widgets.ia_conversa.parsed.resposta}}"],
+              "type": "is_blank",
+              "value": "Is Blank"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "responde_conversa", "type": "send-message",
+      "properties": {
+        "offset": { "x": 260, "y": 700 },
+        "service": "{{trigger.conversation.ChatServiceSid}}",
+        "channel": "{{trigger.conversation.ConversationSid}}",
+        "from": "{{flow.channel.address}}",
+        "to": "{{contact.channel.address}}",
+        "body": "{{widgets.ia_conversa.parsed.resposta}}"
+      },
+      "transitions": [{ "event": "sent" }, { "event": "failed" }]
+    },
+    {
+      "name": "erro_conversa", "type": "send-message",
+      "properties": {
+        "offset": { "x": 620, "y": 700 },
+        "service": "{{trigger.conversation.ChatServiceSid}}",
+        "channel": "{{trigger.conversation.ConversationSid}}",
+        "from": "{{flow.channel.address}}",
+        "to": "{{contact.channel.address}}",
+        "body": "Estamos com uma instabilidade agora. Tente de novo em alguns minutos."
+      },
+      "transitions": [{ "event": "sent" }, { "event": "failed" }]
+    },
+    {
+      "name": "agente_voz", "type": "run-conversation-relay",
+      "properties": {
+        "offset": { "x": 1000, "y": 220 },
+        "url": "__VOZ_PUBLIC_URL__",
+        "welcomeGreeting": "Olá! Você ligou para __EMPRESA__. Esta ligação pode ser gravada. Como posso ajudar?",
+        "welcomeGreetingInterruptible": "any",
+        "language": "pt-BR",
+        "ttsProvider": "Google",
+        "voice": "pt-BR-Chirp3-HD-Leda",
+        "transcriptionProvider": "Google",
+        "interruptible": "any",
+        "interruptSensitivity": "high",
+        "preemptible": false,
+        "dtmfDetection": true,
+        "reportInputDuringAgentSpeech": "none"
+      },
+      "transitions": [
+        { "event": "success", "next": "fim_voz" },
+        { "event": "failed", "next": "erro_voz" }
+      ]
+    },
+    {
+      "name": "fim_voz", "type": "split-based-on",
+      "properties": { "offset": { "x": 1000, "y": 460 }, "input": "{{widgets.agente_voz.HandoffData}}" },
+      "transitions": [
+        { "event": "noMatch", "next": "despedida" },
+        {
+          "event": "match",
+          "next": "humano_voz",
+          "conditions": [
+            {
+              "friendly_name": "pediu humano",
+              "arguments": ["{{widgets.agente_voz.HandoffData}}"],
+              "type": "equal_to",
+              "value": "humano"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "humano_voz", "type": "say-play",
+      "properties": {
+        "offset": { "x": 1200, "y": 700 },
+        "say": "Combinado, vou pedir para a equipe te retornar assim que possível. Obrigada por ligar.",
+        "voice": "Google.pt-BR-Chirp3-HD-Leda",
+        "language": "pt-BR",
+        "loop": 1
+      },
+      "transitions": [{ "event": "audioComplete" }]
+    },
+    {
+      "name": "despedida", "type": "say-play",
+      "properties": {
+        "offset": { "x": 800, "y": 700 },
+        "say": "Obrigada por ligar para __EMPRESA__. Até logo!",
+        "voice": "Google.pt-BR-Chirp3-HD-Leda",
+        "language": "pt-BR",
+        "loop": 1
+      },
+      "transitions": [{ "event": "audioComplete" }]
+    },
+    {
+      "name": "erro_voz", "type": "say-play",
+      "properties": {
+        "offset": { "x": 1500, "y": 460 },
+        "say": "Estamos com uma instabilidade agora. Por favor, ligue de novo em alguns minutos.",
+        "voice": "Google.pt-BR-Chirp3-HD-Leda",
+        "language": "pt-BR",
+        "loop": 1
+      },
+      "transitions": [{ "event": "audioComplete" }]
+    }
+  ]
+}

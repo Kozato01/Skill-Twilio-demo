@@ -1,0 +1,16 @@
+{
+  "friendly_name": "empresa_confirmar_atendimento",
+  "language": "pt_BR",
+  "variables": { "1": "Maria", "2": "4 de novembro às 14h" },
+  "types": {
+    "twilio/quick-reply": {
+      "body": "Olá, {{1}}! Confirma o seu atendimento em {{2}}?",
+      "actions": [
+        { "title": "Confirmar", "id": "confirmar" },
+        { "title": "Remarcar", "id": "remarcar" },
+        { "title": "Cancelar", "id": "cancelar" }
+      ]
+    },
+    "twilio/text": { "body": "Olá, {{1}}! Confirma o seu atendimento em {{2}}? Responda esta mensagem." }
+  }
+}
